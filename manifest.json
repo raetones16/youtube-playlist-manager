@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "YouTube Playlist Manager",
+    "version": "1.0.0",
+    "description": "Track and manage YouTube playlist videos, even after they become unavailable",
+    "permissions": [
+      "storage",
+      "identity"
+    ],
+    "host_permissions": [
+      "https://*.youtube.com/*",
+      "https://www.googleapis.com/*"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [{
+      "matches": ["https://*.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["styles/content/index.css"]
+    }],
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }

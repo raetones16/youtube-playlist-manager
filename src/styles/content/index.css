@@ -1,0 +1,4 @@
+/* Initial styles for content script */
+.yt-playlist-manager {
+    display: none;
+  }
