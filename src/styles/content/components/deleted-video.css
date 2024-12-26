@@ -1,0 +1,127 @@
+/* src/styles/content/components/deleted-video.css */
+
+.deleted-video-container {
+    display: flex;
+    padding: 12px;
+    align-items: flex-start;
+    background: var(--yt-spec-base-background);
+    border-radius: 12px;
+    margin: 8px 0;
+}
+
+.thumbnail-container {
+    position: relative;
+    width: 160px;
+    height: 90px;
+    margin-right: 16px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholder-thumbnail {
+    width: 100%;
+    height: 100%;
+    background-color: var(--yt-spec-text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.placeholder-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--yt-spec-text-primary);
+    opacity: 0.7;
+}
+
+.unavailable-overlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin: 4px;
+}
+
+.unavailable-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.unavailable-icon-svg {
+    width: 16px;
+    height: 16px;
+    color: white;
+}
+
+.metadata {
+    flex: 1;
+    min-width: 0;
+}
+
+.title {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--yt-spec-text-primary);
+}
+
+.deleted-video-title {
+    text-decoration: line-through;
+    color: var(--yt-spec-text-secondary);
+}
+
+.metadata-line {
+    font-size: 12px;
+    color: var(--yt-spec-text-secondary);
+    margin-bottom: 4px;
+}
+
+.status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.status-badge {
+    background: var(--yt-spec-badge-chip-background);
+    color: var(--yt-spec-text-primary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.last-available {
+    color: var(--yt-spec-text-secondary);
+}
+
+.menu-container {
+    margin-left: 8px;
+}
+
+.options-button {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--yt-spec-text-secondary);
+}
+
+.options-button:hover {
+    background-color: var(--yt-spec-badge-chip-background);
+}
+
+.options-icon {
+    width: 24px;
+    height: 24px;
+}
