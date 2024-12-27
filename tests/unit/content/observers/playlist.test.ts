@@ -85,4 +85,76 @@ describe('PlaylistObserver', () => {
             })
         });
     });
+
+    it('queues operations when offline', async () => {
+        // Mock offline state
+        Object.defineProperty(navigator, 'onLine', { value: false });
+        
+        playlistObserver = new PlaylistObserver();
+        await new Promise(resolve => setTimeout(resolve, 50));
+    
+        // Add video element while offline
+        const container = document.querySelector('#contents');
+        container?.insertAdjacentHTML('beforeend', `
+            <ytd-playlist-video-renderer>
+                <a id="video-title" href="/watch?v=test123">Test Video</a>
+                <div id="channel-name">Test Channel</div>
+            </ytd-playlist-video-renderer>
+        `);
+        
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Verify no messages were sent while offline
+        expect(sentMessages.length).toBe(0);
+    });
+    
+    it('syncs video status across devices', async () => {
+        // Create observer but don't wait for initialization yet
+        playlistObserver = new PlaylistObserver();
+        
+        // Set offline state immediately
+        playlistObserver.setOfflineState(false);
+        
+        // Now wait for initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
+    
+        // Add some debug logs
+        console.log('Current offline state:', (playlistObserver as any).isOffline);
+    
+        const container = document.querySelector('#contents');
+        expect(container).toBeTruthy();
+        
+        const videoElement = document.createElement('ytd-playlist-video-renderer');
+        videoElement.setAttribute('data-video-id', 'test123');
+        videoElement.innerHTML = `
+            <div class="metadata">
+                <a id="video-title" href="/watch?v=test123">Test Video</a>
+                <div id="channel-name">Test Channel</div>
+            </div>
+        `;
+        container?.appendChild(videoElement);
+    
+        const syncListener = (chrome.storage.sync.onChanged.addListener as jest.Mock).mock.calls[0][0];
+        expect(syncListener).toBeDefined();
+    
+        await syncListener({
+            'test123': {
+                newValue: {
+                    videoId: 'test123',
+                    status: 'unavailable',
+                    timestamp: Date.now(),
+                    metadata: {
+                        title: 'Test Video',
+                        channelTitle: 'Test Channel',
+                        reason: 'deleted'
+                    }
+                }
+            }
+        });
+    
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const deletedVideo = document.querySelector('.ytd-playlist-video-renderer.deleted-video');
+        expect(deletedVideo).toBeTruthy();
+    });
 });

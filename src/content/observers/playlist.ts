@@ -3,6 +3,7 @@
 import { DeletedVideoComponent } from '../ui/components/deleted-video';
 import { messageBus } from '../../background/message-bus';
 import { MessageType } from '../../common/types/message-types';
+import { syncStorage, VideoSyncData } from '../../common/utils/sync-storage';
 
 export class PlaylistObserver {
     private observer: MutationObserver | null = null;
@@ -14,11 +15,95 @@ export class PlaylistObserver {
         VIDEO_ITEM: 'ytd-playlist-video-renderer',
         VIDEO_TITLE: '#video-title',
         CHANNEL_NAME: '#channel-name',
-        THUMBNAIL: 'img#img'
+        THUMBNAIL: 'img#img',
+        DURATION: 'span.ytd-thumbnail-overlay-time-status-renderer',
+        INDEX: '#index'
     };
+    private isOffline: boolean = false;
+    private operationQueue: Array<{
+        type: 'process' | 'removal';
+        data: any;
+    }> = [];
 
     constructor() {
-        this.initialize();
+        this.initializeAll();
+    }
+    
+    private async initializeAll() {
+        await this.initialize();
+        this.setupConnectionListener();
+        this.setupSyncListener();
+    }
+
+    private setupConnectionListener() {
+        window.addEventListener('online', () => this.handleConnectionChange(true));
+        window.addEventListener('offline', () => this.handleConnectionChange(false));
+        // Check initial state
+        this.handleConnectionChange(navigator.onLine);
+    }
+
+    private setupSyncListener() {
+        syncStorage.setupSyncListener((videoId, data) => {
+            this.handleSyncedStatusUpdate(videoId, data);
+        });
+    }
+
+    private async handleSyncedStatusUpdate(videoId: string, data: VideoSyncData) {
+        console.log('handleSyncedStatusUpdate called with videoId:', videoId);
+        if (this.isOffline) {
+            console.log('Offline, skipping update');
+            return;
+        }
+        
+        const videoElement = document.querySelector(
+            `${this.SELECTORS.VIDEO_ITEM}[data-video-id="${videoId}"]`
+        );
+        console.log('Found video element:', videoElement !== null);
+    
+        if (videoElement instanceof HTMLElement) {
+            console.log('About to replace video element');
+            await this.replaceWithDeletedVideo(videoElement, {
+                videoId: data.videoId,
+                title: data.metadata.title,
+                channelTitle: data.metadata.channelTitle,
+                reason: data.metadata.reason || 'unknown',
+                lastAvailable: data.metadata.lastAvailable
+            });
+            console.log('Replacement complete');
+        }
+    }
+
+    private async handleConnectionChange(online: boolean) {
+        // Only update if we haven't manually set the state
+        if (!(this as any).manualStateSet) {
+            this.isOffline = !online;
+        }
+    
+        if (online && this.operationQueue.length > 0) {
+            await this.processQueue();
+        }
+    }
+    
+    public setOfflineState(offline: boolean) {
+        this.isOffline = offline;
+        (this as any).manualStateSet = true;
+    }
+
+    private async processQueue() {
+        while (this.operationQueue.length > 0) {
+            const operation = this.operationQueue.shift();
+            if (!operation) continue;
+
+            try {
+                if (operation.type === 'process') {
+                    await this.processVideoElement(operation.data);
+                } else if (operation.type === 'removal') {
+                    await this.handleVideoRemoval(operation.data);
+                }
+            } catch (error) {
+                console.error('Error processing queued operation:', error);
+            }
+        }
     }
 
     private async initialize() {
@@ -98,7 +183,11 @@ export class PlaylistObserver {
             const videoData = this.extractVideoData(element);
             if (!videoData) return;
 
-            // Verify video availability
+            if (this.isOffline) {
+                this.operationQueue.push({ type: 'process', data: element });
+                return;
+            }
+
             const response = await messageBus.send({
                 type: MessageType.VERIFY_VIDEO_AVAILABILITY,
                 payload: {
@@ -111,6 +200,19 @@ export class PlaylistObserver {
             });
 
             if (!response.success || !response.data.available) {
+                // Update sync storage before updating UI
+                await syncStorage.updateVideoStatus(videoData.videoId, {
+                    videoId: videoData.videoId,
+                    status: 'unavailable',
+                    timestamp: Date.now(),
+                    metadata: {
+                        title: videoData.title,
+                        channelTitle: videoData.channelTitle,
+                        reason: response.data?.reason || 'unknown',
+                        lastAvailable: Date.now()
+                    }
+                });
+
                 await this.replaceWithDeletedVideo(element, {
                     ...videoData,
                     reason: response.data?.reason || 'unknown'
@@ -131,6 +233,10 @@ export class PlaylistObserver {
     }
 
     private async handleVideoRemoval(element: HTMLElement) {
+        if (this.isOffline) {
+            this.operationQueue.push({ type: 'removal', data: element });
+            return;
+        }
         const videoData = this.extractVideoData(element);
         if (!videoData) return;
 
@@ -173,6 +279,8 @@ export class PlaylistObserver {
         const titleElement = element.querySelector(this.SELECTORS.VIDEO_TITLE);
         const channelElement = element.querySelector(this.SELECTORS.CHANNEL_NAME);
         const thumbnailElement = element.querySelector(this.SELECTORS.THUMBNAIL);
+        const durationElement = element.querySelector(this.SELECTORS.DURATION);
+        const indexElement = element.querySelector(this.SELECTORS.INDEX);
 
         if (!titleElement || !channelElement) return null;
 
@@ -183,7 +291,10 @@ export class PlaylistObserver {
             videoId,
             title: titleElement.textContent?.trim() || 'Unknown Title',
             channelTitle: channelElement.textContent?.trim() || 'Unknown Channel',
-            thumbnailUrl: (thumbnailElement as HTMLImageElement)?.src
+            thumbnailUrl: (thumbnailElement as HTMLImageElement)?.src,
+            duration: durationElement?.textContent?.trim(),
+            position: parseInt(indexElement?.textContent?.trim() || '0', 10),
+            addedAt: Date.now()
         };
     }
 
@@ -206,6 +317,7 @@ export class PlaylistObserver {
             channelTitle: string;
             thumbnailUrl?: string;
             reason: string;
+            lastAvailable?: number;  // Added this property
         }
     ) {
         const deletedVideo = new DeletedVideoComponent(videoData);

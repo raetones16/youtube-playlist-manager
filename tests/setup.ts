@@ -11,11 +11,18 @@ type ChromeMock = {
         };
     };
     storage: {
-        local: {
-            get: jest.Mock;
-            set: jest.Mock;
-        };
-    };
+      local: {
+          get: jest.Mock;
+          set: jest.Mock;
+      };
+      sync: {                   // Add sync storage
+          get: jest.Mock;
+          set: jest.Mock;
+          onChanged: {
+              addListener: jest.Mock;
+          };
+      };
+  };
     identity: {
         getAuthToken: jest.Mock;
         removeCachedAuthToken: jest.Mock;
@@ -41,11 +48,18 @@ const mockChrome: ChromeMock = {
         }
     },
     storage: {
-        local: {
-            get: jest.fn(),
-            set: jest.fn()
-        }
-    },
+      local: {
+          get: jest.fn(),
+          set: jest.fn()
+      },
+      sync: {
+          get: jest.fn(),
+          set: jest.fn(),
+          onChanged: {
+              addListener: jest.fn()
+          }
+      }
+  },
     identity: {
         getAuthToken: jest.fn(),
         removeCachedAuthToken: jest.fn()
