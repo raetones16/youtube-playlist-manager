@@ -4,6 +4,7 @@ import { DeletedVideoComponent } from '../ui/components/deleted-video';
 import { messageBus } from '../../background/message-bus';
 import { MessageType } from '../../common/types/message-types';
 import { syncStorage, VideoSyncData } from '../../common/utils/sync-storage';
+import { NotificationManager } from '../ui/notifications/notification-manager';
 
 export class PlaylistObserver {
     private observer: MutationObserver | null = null;
@@ -24,6 +25,8 @@ export class PlaylistObserver {
         type: 'process' | 'removal';
         data: any;
     }> = [];
+
+    private notifications = NotificationManager.getInstance();
 
     constructor() {
         this.initializeAll();
@@ -77,10 +80,21 @@ export class PlaylistObserver {
         // Only update if we haven't manually set the state
         if (!(this as any).manualStateSet) {
             this.isOffline = !online;
-        }
-    
-        if (online && this.operationQueue.length > 0) {
-            await this.processQueue();
+            
+            if (!online) {
+                this.notifications.warning(
+                    'You are offline. Changes will be queued until connection is restored.',
+                    { duration: 0 }  // Persist until back online
+                );
+            } else if (this.operationQueue.length > 0) {
+                this.notifications.info(
+                    `Processing ${this.operationQueue.length} pending changes...`
+                );
+                await this.processQueue();
+                this.notifications.success('All pending changes have been processed');
+            } else {
+                this.notifications.success('Connection restored');
+            }
         }
     }
     
@@ -317,20 +331,51 @@ export class PlaylistObserver {
             channelTitle: string;
             thumbnailUrl?: string;
             reason: string;
-            lastAvailable?: number;  // Added this property
+            lastAvailable?: number;
         }
     ) {
         const deletedVideo = new DeletedVideoComponent(videoData);
         deletedVideo.mount(element);
+    
+        const reasonText = this.getReasonText(videoData.reason);
+        this.notifications.info(
+            `Video "${videoData.title}" is no longer available: ${reasonText}`
+        );
+    }
+
+    private getReasonText(reason: string): string {
+        switch (reason) {
+            case 'private':
+                return 'Video is now private';
+            case 'deleted':
+                return 'Video has been removed';
+            case 'copyright':
+                return 'Video removed due to copyright';
+            default:
+                return 'Video is unavailable';
+        }
     }
 
     private handleInitializationError() {
         if (this.retryAttempts < this.MAX_RETRIES) {
             this.retryAttempts++;
+            if (this.retryAttempts === 1) {
+                this.notifications.warning(
+                    'Having trouble loading playlist. Retrying...'
+                );
+            }
             setTimeout(() => this.initialize(), this.RETRY_DELAY);
         } else {
-            // Could integrate with a notification system here
-            console.error('Failed to initialize playlist observer after max retries');
+            this.notifications.error(
+                'Failed to initialize playlist monitoring. Please refresh the page.',
+                {
+                    duration: 0,
+                    actions: [{
+                        label: 'Refresh',
+                        onClick: () => window.location.reload()
+                    }]
+                }
+            );
         }
     }
 

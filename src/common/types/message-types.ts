@@ -6,6 +6,10 @@ export enum MessageType {
     VIDEO_REMOVED = 'VIDEO_REMOVED',
     SYNC_REQUEST = 'SYNC_REQUEST',
 
+    // Settings Messages
+    SETTINGS_UPDATE = 'SETTINGS_UPDATE',
+    SETTINGS_GET = 'SETTINGS_GET',
+
     // Background -> Content Script
     UPDATE_UI = 'UPDATE_UI',
     SYNC_STATUS = 'SYNC_STATUS',
@@ -15,6 +19,16 @@ export enum MessageType {
     VERIFY_VIDEO_AVAILABILITY = 'VERIFY_VIDEO_AVAILABILITY',
     VIDEO_UNAVAILABLE = 'VIDEO_UNAVAILABLE',
     VIDEO_STATUS_UPDATED = 'VIDEO_STATUS_UPDATED'
+}
+
+export interface SettingKey {
+    defaultPlaylistBehavior: 'ask_always' | 'manual_only';
+    syncFrequency: 'hourly' | 'daily';
+    notifications: {
+        videoStatus: boolean;
+        syncStatus: boolean;
+        storage: boolean;
+    };
 }
 
 export interface MessagePayload {
@@ -61,6 +75,13 @@ export interface MessagePayload {
         videoId: string;
         status: string;
         reason: string;
+    };
+    [MessageType.SETTINGS_UPDATE]: {
+        key: keyof SettingKey;
+        value: SettingKey[keyof SettingKey];
+    };
+    [MessageType.SETTINGS_GET]: {
+        key?: keyof SettingKey;  // Optional - if undefined, get all settings
     };
 }
 

@@ -1,43 +1,11 @@
-<!-- src/popup/popup.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>YouTube Playlist Manager</title>
-    <link rel="stylesheet" href="../styles/popup/popup.css">
 </head>
 <body>
-    <div class="popup-container">
-        <header class="popup-header">
-            <h1>YouTube Playlist Manager</h1>
-            <button id="settings-button" class="icon-button" title="Settings">
-                ⚙️
-            </button>
-        </header>
-
-        <main class="popup-content">
-            <div id="playlist-status" class="status-section hidden">
-                <!-- Populated by JavaScript -->
-            </div>
-
-            <div id="error-message" class="error-message hidden">
-                <!-- Error messages shown here -->
-                <button id="clear-error" class="close-button">×</button>
-            </div>
-
-            <div class="action-section">
-                <button id="sync-button" class="primary-button">
-                    Sync Now
-                </button>
-            </div>
-        </main>
-
-        <footer class="popup-footer">
-            <span id="sync-status" class="status-text">
-                <!-- Sync status shown here -->
-            </span>
-        </footer>
-    </div>
+    <div id="root"></div>
     <script src="popup.js"></script>
 </body>
 </html>

@@ -1,11 +1,14 @@
 // src/content/content.ts
 
 import { PlaylistObserver } from './observers/playlist';
+import { NotificationManager } from './ui/notifications/notification-manager';
 
 class ContentScript {
     private observer: PlaylistObserver | null = null;
+    private notificationManager: NotificationManager;
 
     constructor() {
+        this.notificationManager = NotificationManager.getInstance();
         this.initialize();
         this.setupNavigationHandlers();
     }
