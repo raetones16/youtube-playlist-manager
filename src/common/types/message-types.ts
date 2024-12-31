@@ -1,5 +1,7 @@
 // src/common/types/message-types.ts
 
+import { ErrorType } from '../errors/types';
+
 export enum MessageType {
     // Content Script -> Background
     VIDEO_ADDED = 'VIDEO_ADDED',
@@ -18,17 +20,11 @@ export enum MessageType {
     // Video Status Messages
     VERIFY_VIDEO_AVAILABILITY = 'VERIFY_VIDEO_AVAILABILITY',
     VIDEO_UNAVAILABLE = 'VIDEO_UNAVAILABLE',
-    VIDEO_STATUS_UPDATED = 'VIDEO_STATUS_UPDATED'
-}
+    VIDEO_STATUS_UPDATED = 'VIDEO_STATUS_UPDATED',
 
-export interface SettingKey {
-    defaultPlaylistBehavior: 'ask_always' | 'manual_only';
-    syncFrequency: 'hourly' | 'daily';
-    notifications: {
-        videoStatus: boolean;
-        syncStatus: boolean;
-        storage: boolean;
-    };
+    // Error-related types
+    ERROR_STATUS = 'ERROR_STATUS',
+    ERROR_RETRY = 'ERROR_RETRY'
 }
 
 export interface MessagePayload {
@@ -82,6 +78,28 @@ export interface MessagePayload {
     };
     [MessageType.SETTINGS_GET]: {
         key?: keyof SettingKey;  // Optional - if undefined, get all settings
+    };
+    [MessageType.ERROR_STATUS]: {
+        errorType: ErrorType;
+        component: string;
+        timestamp: number;
+        details?: Record<string, any>;
+        retryScheduled?: boolean;
+    };
+    [MessageType.ERROR_RETRY]: {
+        component: string;
+        operation: string;
+        context: Record<string, any>;
+    };
+}
+
+export interface SettingKey {
+    defaultPlaylistBehavior: 'ask_always' | 'manual_only';
+    syncFrequency: 'hourly' | 'daily';
+    notifications: {
+        videoStatus: boolean;
+        syncStatus: boolean;
+        storage: boolean;
     };
 }
 

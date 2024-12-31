@@ -1,6 +1,6 @@
 // tests/unit/background/message-bus.test.ts
 
-import { MessageBus } from '../../../src/background/message-bus';
+import { MessageBus, messageBus } from '../../../src/background/message-bus';
 import { MessageType } from '../../../src/common/types/message-types';
 import { chrome } from '../../setup';
 
@@ -66,6 +66,41 @@ describe('MessageBus', () => {
         expect(sendResponse).toHaveBeenCalledWith({
             success: false,
             error: 'Handler failed'
+        });
+    });
+
+    it('should reject sync when offline', async () => {
+        const bus = MessageBus.getInstance();
+        const mockHandler = jest.fn().mockResolvedValue({
+            success: false,
+            error: "You're offline. Please try again when connected to the internet."
+        });
+        bus.register(MessageType.SYNC_REQUEST, mockHandler);
+    
+        // Mock offline state
+        Object.defineProperty(navigator, 'onLine', { value: false });
+    
+        const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0] as MessageListener;
+        const sendResponse = jest.fn();
+    
+        const message = {
+            type: MessageType.SYNC_REQUEST,
+            payload: {
+                playlistId: 'test123',
+                force: false
+            }
+        };
+    
+        listener(message, {}, sendResponse);
+        await new Promise(resolve => setTimeout(resolve, 0));
+    
+        expect(sendResponse).toHaveBeenCalledWith({
+            success: false,
+            data: [{
+                success: false,
+                error: "You're offline. Please try again when connected to the internet."
+            }],
+            error: "All handlers failed"
         });
     });
 });

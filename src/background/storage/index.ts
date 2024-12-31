@@ -152,6 +152,19 @@ export class StorageManager {
         });
     }
 
+    async removeVideo(videoId: string, playlistId: string): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+    
+        const transaction = this.db.transaction(['videos'], 'readwrite');
+        const store = transaction.objectStore('videos');
+    
+        return new Promise((resolve, reject) => {
+            const request = store.delete([videoId, playlistId]);
+            request.onerror = () => reject(new Error('Failed to remove video'));
+            request.onsuccess = () => resolve();
+        });
+    }
+
     async getPlaylistVideos(playlistId: string): Promise<VideoData[]> {
         if (!this.db) throw new Error('Database not initialized');
 

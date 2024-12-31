@@ -2,18 +2,24 @@
 
 import { PlaylistObserver } from './observers/playlist';
 import { NotificationManager } from './ui/notifications/notification-manager';
+import { ErrorStatusHandler } from './handlers/error-status-handler';
 
 class ContentScript {
     private observer: PlaylistObserver | null = null;
     private notificationManager: NotificationManager;
+    private errorHandler: ErrorStatusHandler;
 
     constructor() {
         this.notificationManager = NotificationManager.getInstance();
+        this.errorHandler = new ErrorStatusHandler();
         this.initialize();
         this.setupNavigationHandlers();
     }
 
     private initialize() {
+        // Initialize error handler (needs to be active regardless of page type)
+        this.errorHandler.initialize();
+
         // Initialize observer when on a playlist page
         if (this.isPlaylistPage()) {
             this.setupPlaylistObserver();

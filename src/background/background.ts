@@ -5,6 +5,7 @@ import { youtubeAPI } from './api/youtube';
 import { messageBus } from './message-bus';
 import { MessageType } from '../common/types/message-types';
 import { VideoStatus, RemovalType } from './storage/types';
+import { storageQuotaManager } from './storage/storage-quota-manager';
 
 class BackgroundWorker {
     private initialized = false;
@@ -17,9 +18,10 @@ class BackgroundWorker {
         try {
             // Initialize core services
             await storageManager.initialize();
+            await storageQuotaManager.initialize();
             await this.setupMessageHandlers();
             this.setupAlarms();
-            
+
             // Mark as initialized
             this.initialized = true;
             console.log('Background worker initialized successfully');
@@ -31,17 +33,27 @@ class BackgroundWorker {
 
     private async setupMessageHandlers() {
         // Handle sync requests
+        // In background.ts, update the SYNC_REQUEST handler:
+
         messageBus.register(
             MessageType.SYNC_REQUEST,
             async (payload) => {
                 try {
+                    // Check if online first
+                    if (!navigator.onLine) {
+                        return {
+                            success: false,
+                            error: "You're offline. Please try again when connected to the internet."
+                        };
+                    }
+
                     const { playlistId, force } = payload;
                     // Get playlist details from YouTube
                     const details = await youtubeAPI.getPlaylistDetails(playlistId);
-                    
+
                     // Start sync process
                     await this.syncPlaylist(playlistId, details.itemCount, force);
-                    
+
                     return { success: true };
                 } catch (error) {
                     console.error('Sync request failed:', error);
@@ -102,7 +114,7 @@ class BackgroundWorker {
                 try {
                     const { videoId } = payload;
                     const [videoDetails] = await youtubeAPI.getVideoDetails([videoId]);
-                    return { 
+                    return {
                         success: true,
                         data: { available: !!videoDetails }
                     };
@@ -137,44 +149,65 @@ class BackgroundWorker {
         let pageToken: string | undefined;
         const processedItems = new Set<string>();
 
-        do {
-            const response = await youtubeAPI.getPlaylistItems(playlistId, pageToken);
-            
-            for (const video of response.items) {
-                processedItems.add(video.videoId);
-                // Store or update video information
-                await storageManager.addVideo(video, playlistId);
-            }
+        try {
+            do {
+                const response = await youtubeAPI.getPlaylistItems(playlistId, pageToken);
 
-            pageToken = response.nextPageToken;
+                for (const video of response.items) {
+                    processedItems.add(video.videoId);
+                    // Store or update video information
+                    await storageManager.addVideo(video, playlistId);
+                }
 
-            // Update sync progress
+                pageToken = response.nextPageToken;
+
+                // Update sync progress
+                await messageBus.send({
+                    type: MessageType.SYNC_STATUS,
+                    payload: {
+                        playlistId,
+                        status: 'syncing',
+                        progress: (processedItems.size / totalItems) * 100
+                    }
+                });
+
+            } while (pageToken);
+
+            // Sync completed successfully
             await messageBus.send({
                 type: MessageType.SYNC_STATUS,
                 payload: {
                     playlistId,
-                    status: 'syncing',
-                    progress: (processedItems.size / totalItems) * 100
+                    status: 'success',
+                    progress: 100
                 }
             });
 
-        } while (pageToken);
-
-        // Final status update
-        await messageBus.send({
-            type: MessageType.SYNC_STATUS,
-            payload: {
-                playlistId,
-                status: 'success',
-                progress: 100
+        } catch (error) {
+            // Sync failed - remove all processed items for this sync
+            for (const videoId of processedItems) {
+                await storageManager.removeVideo(videoId, playlistId);
             }
-        });
+
+            // Notify about failure
+            await messageBus.send({
+                type: MessageType.SYNC_STATUS,
+                payload: {
+                    playlistId,
+                    status: 'error',
+                    progress: 0,
+                    error: error instanceof Error ? error.message : 'Sync failed'
+                }
+            });
+
+            throw error; // Re-throw to be handled by the caller
+        }
     }
 
     private async handlePeriodicSync() {
         // Get all monitored playlists and sync them
         const { monitoredPlaylists = [] } = await chrome.storage.local.get('monitoredPlaylists');
-        
+
         for (const playlistId of monitoredPlaylists) {
             try {
                 const details = await youtubeAPI.getPlaylistDetails(playlistId);

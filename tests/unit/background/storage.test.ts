@@ -24,12 +24,12 @@ describe('StorageManager', () => {
             // @ts-ignore
             storageManager.db.close();
         }
-        
+
         // Reset instance and clear database
         await deleteDatabase();
         // @ts-ignore
         storageManager.db = null;
-        
+
         // Initialize fresh database
         await storageManager.initialize();
     });
@@ -37,7 +37,7 @@ describe('StorageManager', () => {
     it('successfully adds and retrieves a video', async () => {
         const videoId = 'test-video-id';
         const playlistId = 'test-playlist-id';
-        
+
         const testVideo: VideoData = {
             videoId,
             title: 'Test Video',
@@ -106,5 +106,37 @@ describe('StorageManager', () => {
             status: VideoStatus.UNAVAILABLE,
             reason: RemovalType.PRIVATE
         });
+    });
+
+    it('should remove video from storage', async () => {
+        const videoId = 'test123';
+        const playlistId = 'playlist123';
+
+        // Add video first
+        const testVideo: VideoData = {
+            videoId,
+            title: 'Test Video',
+            channelId: 'test-channel',
+            channelTitle: 'Test Channel',
+            addedAt: Date.now(),
+            position: 0,
+            status: {
+                current: VideoStatus.AVAILABLE,
+                lastChecked: Date.now(),
+                history: []
+            },
+            metadata: {
+                userRemoved: false
+            }
+        };
+
+        await storageManager.addVideo(testVideo, playlistId);
+
+        // Remove video
+        await storageManager.removeVideo(videoId, playlistId);
+
+        // Verify it's gone
+        const videos = await storageManager.getPlaylistVideos(playlistId);
+        expect(videos).toHaveLength(0);
     });
 });
